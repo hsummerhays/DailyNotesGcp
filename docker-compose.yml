@@ -1,0 +1,28 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: cloud-notes-db
+    ports:
+      - "5433:5432"
+    environment:
+      POSTGRES_DB: cloudnotes
+      POSTGRES_USER: cloudnotes_user
+      POSTGRES_PASSWORD: cloudnotes_password
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+  mongodb:
+    image: mongo:7.0
+    container_name: cloud-notes-nosql
+    ports:
+      - "27017:27017"
+    environment:
+      MONGO_INITDB_DATABASE: cloudnotes
+    volumes:
+      - mongodata:/data/db
+
+volumes:
+  pgdata:
+  mongodata:

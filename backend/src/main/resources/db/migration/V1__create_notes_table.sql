@@ -1,0 +1,10 @@
+CREATE TABLE notes (
+    id UUID PRIMARY KEY,
+    title VARCHAR(255) NOT NULL,
+    content TEXT,
+    archived BOOLEAN NOT NULL DEFAULT FALSE,
+    owner_email VARCHAR(255) NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL,
+    updated_at TIMESTAMP WITH TIME ZONE NOT NULL,
+    version BIGINT NOT NULL
+);
