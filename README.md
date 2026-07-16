@@ -19,7 +19,9 @@ The application is split into:
 ## Security & Tenant Isolation
 
 - **HTTP-Only Cookies**: User authentication relies on JSON Web Tokens (JWT) stored in secure, `httpOnly`, and `SameSite` cookies, mitigating cross-site scripting (XSS) risks. 
-- **CORS Restraints**: Configured to restrict access using explicit origins via `app.cors.allowed-origins` config properties, preventing unauthorized websites from executing cross-origin credentialed requests.
+- **Rootless Containers**: The frontend image uses `nginx-unprivileged:alpine`, running entirely as a non-root user (restricting it to port `8080` internally) to reduce the container's security exposure.
+- **Same-Origin Reverse Proxy**: Nginx acts as a unified entry point, reverse-proxying `/api/` traffic directly to the backend over the internal network. This removes CORS requirements in production.
+- **Security Headers**: Nginx is configured to inject security headers (`X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, `Referrer-Policy`) and disable caching for the app shell (`/index.html`).
 - **Async Bulk Import Isolation**: The backend supports asynchronous bulk note imports. Import tasks (`ImportTaskStatus`) are tied directly to the authenticated user (`principal.getName()`), preventing unauthorized users from accessing task statuses of other users.
 
 ---

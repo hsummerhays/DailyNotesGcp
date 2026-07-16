@@ -9,11 +9,11 @@ docker compose up -d --build
 # Wait and poll backend health
 $retries = 20
 $backendReady = $false
-Write-Host "Polling backend health endpoint (http://localhost:8080/actuator/health)..." -ForegroundColor Yellow
+Write-Host "Polling backend health endpoint (http://127.0.0.1:8085/actuator/health)..." -ForegroundColor Yellow
 
 for ($i = 1; $i -le $retries; $i++) {
     try {
-        $response = Invoke-RestMethod -Uri "http://localhost:8080/actuator/health" -Method Get -TimeoutSec 3
+        $response = Invoke-RestMethod -Uri "http://127.0.0.1:8085/actuator/health" -Method Get -TimeoutSec 3
         if ($response.status -eq "UP") {
             Write-Host "Backend is UP and healthy!" -ForegroundColor Green
             $backendReady = $true
@@ -30,12 +30,12 @@ for ($i = 1; $i -le $retries; $i++) {
 # Wait and poll frontend health
 $frontendReady = $false
 if ($backendReady) {
-    Write-Host "Polling frontend service (http://localhost/)..." -ForegroundColor Yellow
+    Write-Host "Polling frontend service (http://127.0.0.1:8086/health)..." -ForegroundColor Yellow
     for ($i = 1; $i -le 5; $i++) {
         try {
-            $response = Invoke-WebRequest -Uri "http://localhost/" -Method Get -TimeoutSec 3
+            $response = Invoke-WebRequest -Uri "http://127.0.0.1:8086/health" -Method Get -TimeoutSec 3 -UseBasicParsing
             if ($response.StatusCode -eq 200) {
-                Write-Host "Frontend is responding with 200 OK!" -ForegroundColor Green
+                Write-Host "Frontend is responding with 200 OK at /health!" -ForegroundColor Green
                 $frontendReady = $true
                 break
             }
