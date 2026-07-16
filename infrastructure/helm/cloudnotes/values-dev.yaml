@@ -1,0 +1,6 @@
+# Environment specific overrides for Development
+global:
+  environment: "dev"
+
+backend:
+  replicaCount: 1 # Scale down replicas for local dev resource saving if preferred

@@ -108,11 +108,11 @@ This application is designed to run on Google Kubernetes Engine (GKE). Productio
 The following components and features are planned for future development to align with production best practices and advanced requirements. See [ROADMAP.md](ROADMAP.md) for the detailed, skill-tagged version of this plan.
 
 ### 1. Containerization & Orchestration
-- [ ] **Dockerfiles**: Implement production-ready, multi-stage Dockerfiles for both the Spring Boot backend and React frontend.
-- [ ] **Helm Charts**: Author Helm charts to manage Kubernetes deployments, services, ingress, and secret management on GKE.
+- [x] **Dockerfiles**: Implement production-ready, multi-stage Dockerfiles for both the Spring Boot backend and React frontend.
+- [x] **Helm Charts**: Author Helm charts to manage Kubernetes deployments, services, ingress, and secret management on GKE.
 
 ### 2. Infrastructure as Code (IaC) & DevOps
-- [ ] **Terraform Configuration**: Create Terraform scripts to provision GCP infrastructure, including a GKE cluster, VPC network, Cloud SQL (PostgreSQL), and Memorystore (Redis/MongoDB).
+- [x] **Terraform Configuration**: Create Terraform scripts to provision GCP infrastructure, including a GKE cluster, VPC network, Cloud SQL (PostgreSQL), and Memorystore (Redis/MongoDB).
 - [ ] **CI/CD Pipelines**: Set up GitHub Actions or Google Cloud Build pipelines for automated testing, linting, Docker image building, and GKE deployment.
 
 ### 3. Architecture & Scale

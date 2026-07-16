@@ -20,9 +20,9 @@ This document details the refined technical roadmap for CloudNotes, prioritizing
 | **JWT & API Security** | ✅ Done | httpOnly/SameSite cookies, per-resource ownership verification |
 | **OAuth2 / OIDC** | ❌ Planned | Support Google OpenID Connect alongside JWT/passwords (Phase 4) |
 | **Microservices / Distributed** | ❌ Planned | Move consumer worker to a separately deployable Spring Boot app (Phase 3) |
-| **Containerization** | ❌ Planned | Multi-stage production-ready Dockerfiles & docker-compose stack (Phase 1) |
+| **Containerization** | ✅ Done | Multi-stage production-ready Dockerfiles & docker-compose stack |
 | **Messaging & Streaming** | ❌ Planned | Pub/Sub backed async bulk import processing with job records (Phase 2) |
-| **Cloud-Native / GKE** | ❌ Planned | Terraform IaC & Helm deployment charts (Phase 5) |
+| **Cloud-Native / GKE** | ⚠️ Drafted | Terraform IaC & Helm configs written (Phase 5) |
 | **CI/CD** | ❌ Planned | GitHub Actions automated tests, build, scan, and deploy (Phase 5) |
 | **AI / Generative AI** | ❌ Planned | Constrained Python worker for schema-validated note summaries (Phase 6) |
 
@@ -32,11 +32,11 @@ This document details the refined technical roadmap for CloudNotes, prioritizing
 
 ### Phase 1 — Production Containerization (Immediate Focus)
 *Goal: Establish a stable, containerized local base before splitting services.*
-- [ ] **Backend multi-stage Dockerfile**: Fast builds using cached dependencies and lightweight runner images (Eclipse Temurin JRE).
-- [ ] **Frontend multi-stage Dockerfile**: Build Vite assets and serve them using Nginx.
-- [ ] **Health and readiness endpoints**: Configure Spring Boot Actuator and Nginx status checks.
-- [ ] **Full-stack Docker Compose**: Update root `docker-compose.yml` to orchestrate backend, frontend, PostgreSQL, and MongoDB.
-- [ ] **Container-level integration testing**: Automate validation of the orchestrated containers.
+- [x] **Backend multi-stage Dockerfile**: Fast builds using cached dependencies and lightweight runner images (Eclipse Temurin JRE).
+- [x] **Frontend multi-stage Dockerfile**: Build Vite assets and serve them using Nginx.
+- [x] **Health and readiness endpoints**: Configure Spring Boot Actuator and Nginx status checks.
+- [x] **Full-stack Docker Compose**: Update root `docker-compose.yml` to orchestrate backend, frontend, PostgreSQL, and MongoDB.
+- [x] **Container-level integration testing**: Automate validation of the orchestrated containers.
 
 ### Phase 2 — Durable Asynchronous Processing
 *Goal: Re-architect bulk import to use persistent job state and a messaging broker instead of in-memory queues.*
@@ -71,8 +71,8 @@ This document details the refined technical roadmap for CloudNotes, prioritizing
 - [ ] **Workload Identity**: Prepare deployment configurations to authenticate with GCP resources securely without static service-account keys.
 
 ### Phase 5 — GKE, Terraform, and CI/CD
-- [ ] **Terraform Infrastructure (IaC)**: Provision VPC, GKE cluster, Artifact Registry, Cloud SQL (PostgreSQL), Pub/Sub, Cloud Storage, and Secret Manager.
-- [ ] **Helm Deployment**: Package services with `Deployment`, `Service`, `Ingress`, `ConfigMaps`, and resource request/limit controls (HPA, PDB).
+- [x] **Terraform Infrastructure (IaC)**: Provision GKE cluster, Artifact Registry, Cloud SQL (PostgreSQL), IAM, and Secret Manager. *(Authored; not yet applied against a live GCP project. Pub/Sub and Cloud Storage provisioning still planned for Phase 2.)*
+- [x] **Helm Deployment**: Package services with `Deployment`, `Service`, `Gateway`/`HTTPRoute`, and a Secret Store CSI provider class. *(HPA/PDB resource controls still planned.)*
 - [ ] **CI/CD Pipeline**: GitHub Actions to run tests, scan images for vulnerabilities, push to Artifact Registry, and trigger GKE rolling deployments.
 
 ### Phase 6 — Python AI Worker

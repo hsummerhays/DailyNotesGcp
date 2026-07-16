@@ -1,0 +1,45 @@
+global:
+  projectId: "your-gcp-project-id"
+  region: "us-central1"
+  environment: "dev"
+
+backend:
+  replicaCount: 2
+  image:
+    repository: "us-central1-docker.pkg.dev/your-gcp-project-id/cloudnotes/backend"
+    tag: "latest"
+    pullPolicy: IfNotPresent
+  resources:
+    requests:
+      cpu: 250m
+      memory: 512Mi
+    limits:
+      cpu: "1"
+      memory: 1Gi
+  jvmOptions: "-XX:MaxRAMPercentage=75 -XX:+UseG1GC"
+  sqlProxy:
+    version: "2.11.2"
+    instanceConnectionName: "your-gcp-project-id:us-central1:cloudnotes-db-dev"
+    port: 5432
+  secrets:
+    dbPasswordSecret: "cloudnotes-db-password"
+    mongodbUriSecret: "cloudnotes-mongodb-uri"
+    jwtSecretSecret: "cloudnotes-jwt-secret"
+
+frontend:
+  replicaCount: 1
+  image:
+    repository: "us-central1-docker.pkg.dev/your-gcp-project-id/cloudnotes/frontend"
+    tag: "latest"
+    pullPolicy: IfNotPresent
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 200m
+      memory: 256Mi
+
+gateway:
+  # The external static IP name in GCP to bind to the Gateway load balancer (if any)
+  staticIpName: ""

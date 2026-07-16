@@ -1,0 +1,98 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cloudnotes-backend
+  namespace: {{ .Release.Namespace | default "default" }}
+  labels:
+    app: cloudnotes-backend
+spec:
+  replicas: {{ .Values.backend.replicaCount }}
+  selector:
+    matchLabels:
+      app: cloudnotes-backend
+  template:
+    metadata:
+      labels:
+        app: cloudnotes-backend
+    spec:
+      serviceAccountName: cloudnotes-backend
+      containers:
+        - name: backend
+          image: "{{ .Values.backend.image.repository }}:{{ .Values.backend.image.tag }}"
+          imagePullPolicy: {{ .Values.backend.image.pullPolicy }}
+          ports:
+            - containerPort: 8080
+              name: http
+          env:
+            - name: SPRING_PROFILES_ACTIVE
+              value: prod
+            - name: DB_URL
+              value: jdbc:postgresql://127.0.0.1:5432/cloudnotes
+            - name: DB_USER
+              value: cloudnotes_user
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: cloudnotes-backend-secret-sync
+                  key: DB_PASSWORD
+            - name: MONGODB_URI
+              valueFrom:
+                secretKeyRef:
+                  name: cloudnotes-backend-secret-sync
+                  key: MONGODB_URI
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: cloudnotes-backend-secret-sync
+                  key: JWT_SECRET
+            - name: JAVA_TOOL_OPTIONS
+              value: "{{ .Values.backend.jvmOptions }}"
+          resources:
+            {{- toYaml .Values.backend.resources | nindent 12 }}
+          startupProbe:
+            httpGet:
+              path: /actuator/health
+              port: 8080
+            failureThreshold: 30
+            periodSeconds: 5
+          readinessProbe:
+            httpGet:
+              path: /actuator/health/readiness
+              port: 8080
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /actuator/health/liveness
+              port: 8080
+            periodSeconds: 20
+          lifecycle:
+            preStop:
+              exec:
+                command: ["/bin/sh", "-c", "sleep 15"] # Let active HTTP connections drain during rolling upgrades
+          volumeMounts:
+            - name: secrets-mount
+              mountPath: "/mnt/secrets"
+              readOnly: true
+
+        - name: cloud-sql-proxy
+          image: "gcr.io/cloud-sql-connectors/cloud-sql-proxy:{{ .Values.backend.sqlProxy.version }}"
+          args:
+            - "--structured-logs"
+            - "--auto-iam-authn"
+            - "--port={{ .Values.backend.sqlProxy.port }}"
+            - "{{ .Values.backend.sqlProxy.instanceConnectionName }}"
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 200m
+              memory: 256Mi
+
+      volumes:
+        - name: secrets-mount
+          csi:
+            driver: secrets-store.csi.k8s.io
+            readOnly: true
+            volumeAttributes:
+              secretProviderClass: "cloudnotes-secrets-provider"

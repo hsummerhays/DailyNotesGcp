@@ -1,0 +1,18 @@
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: cloudnotes-gateway
+  namespace: {{ .Release.Namespace | default "default" }}
+  annotations:
+    {{- if .Values.gateway.staticIpName }}
+    networking.gke.io/static-ip: {{ .Values.gateway.staticIpName | quote }}
+    {{- end }}
+spec:
+  gatewayClassName: gke-l7-gxlb
+  listeners:
+    - name: http
+      protocol: HTTP
+      port: 80
+      allowedRoutes:
+        namespaces:
+          from: Same
