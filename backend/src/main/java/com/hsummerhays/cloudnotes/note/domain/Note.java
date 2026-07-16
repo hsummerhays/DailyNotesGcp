@@ -1,44 +1,19 @@
 package com.hsummerhays.cloudnotes.note.domain;
 
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.Id;
-import jakarta.persistence.Table;
-import jakarta.persistence.Version;
 import java.time.Instant;
 import java.util.UUID;
 
-@Entity
-@Table(name = "notes")
+// Plain domain object - persistence is handled by NoteRepository (MongoDB-backed), not JPA.
 public class Note {
 
-    @Id
     private UUID id;
-
-    @Column(nullable = false)
     private String title;
-
-    @Column(columnDefinition = "TEXT")
     private String content;
-
-    @Column(nullable = false)
     private boolean archived;
-
-    @Column(name = "owner_email", nullable = false)
     private String ownerEmail;
-
-    @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
-
-    @Column(name = "updated_at", nullable = false)
     private Instant updatedAt;
-
-    @Version
     private Long version;
-
-    protected Note() {
-        // Required by JPA
-    }
 
     public Note(UUID id, String title, String content, String ownerEmail) {
         this.id = id != null ? id : UUID.randomUUID();

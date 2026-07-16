@@ -1,5 +1,6 @@
 package com.hsummerhays.cloudnotes.note.api;
 
+import com.hsummerhays.cloudnotes.note.application.BulkImportService;
 import com.hsummerhays.cloudnotes.note.application.NoteService;
 import com.hsummerhays.cloudnotes.note.domain.Note;
 import jakarta.validation.Valid;
@@ -14,16 +15,12 @@ import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/notes")
-@CrossOrigin(origins = "*")
 public class NoteController {
 
     private final NoteService noteService;
-    private final com.hsummerhays.cloudnotes.note.application.BulkImportService bulkImportService;
+    private final BulkImportService bulkImportService;
 
-    public NoteController(
-            NoteService noteService,
-            com.hsummerhays.cloudnotes.note.application.BulkImportService bulkImportService
-    ) {
+    public NoteController(NoteService noteService, BulkImportService bulkImportService) {
         this.noteService = noteService;
         this.bulkImportService = bulkImportService;
     }
@@ -37,8 +34,8 @@ public class NoteController {
 
     @GetMapping("/import/{taskId}")
     @PreAuthorize("hasRole('ROLE_USER')")
-    public ImportTaskStatus getImportStatus(@PathVariable("taskId") UUID taskId) {
-        return bulkImportService.getStatus(taskId);
+    public ImportTaskStatus getImportStatus(@PathVariable("taskId") UUID taskId, Principal principal) {
+        return bulkImportService.getStatus(taskId, principal.getName());
     }
 
     @PostMapping

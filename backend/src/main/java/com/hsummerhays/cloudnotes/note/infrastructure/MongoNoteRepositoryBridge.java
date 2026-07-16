@@ -3,7 +3,6 @@ package com.hsummerhays.cloudnotes.note.infrastructure;
 import com.hsummerhays.cloudnotes.note.domain.Note;
 import com.hsummerhays.cloudnotes.note.domain.NoteDocument;
 import com.hsummerhays.cloudnotes.note.domain.NoteRepository;
-import org.springframework.context.annotation.Primary;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
@@ -12,7 +11,6 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Component
-@Primary
 public class MongoNoteRepositoryBridge implements NoteRepository {
 
     private final MongoNoteRepository mongoRepository;
@@ -23,8 +21,6 @@ public class MongoNoteRepositoryBridge implements NoteRepository {
 
     private Note toDomain(NoteDocument doc) {
         if (doc == null) return null;
-        // Map document fields back to relational Note object to maintain API compatibility
-        // Clean architecture boundary allows repository implementation to switch under the hood!
         Note note = new Note(doc.getId(), doc.getTitle(), doc.getContent(), doc.getOwnerEmail());
         if (doc.isArchived()) {
             note.archive();

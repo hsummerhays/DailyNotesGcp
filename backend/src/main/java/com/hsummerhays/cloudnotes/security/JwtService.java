@@ -17,11 +17,12 @@ import java.util.function.Function;
 @Component
 public class JwtService {
 
-    // In a real application, inject this from Secret Manager or encrypted configs
-    @Value("${jwt.secret:dGhpcy1pcy1hLXZlcnktc2VjdXJlLTMyLWJ5dGUtc2VjcmV0LWtleS1mb3ItZGV2ZWxvcG1lbnQ=}")
+    // Required property - dev default lives in application.properties, prod has
+    // no default and fails fast at startup if JWT_SECRET isn't injected.
+    @Value("${jwt.secret}")
     private String secret;
 
-    @Value("${jwt.expiration-ms:3600000}") // 1 hour
+    @Value("${jwt.expiration-ms}")
     private long jwtExpirationMs;
 
     private SecretKey getSigningKey() {

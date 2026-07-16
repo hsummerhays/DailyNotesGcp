@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import type { Note } from './types';
-import { notesApi, authApi, getAuthToken } from './api/notesApi';
+import { notesApi, authApi } from './api/notesApi';
 import { 
   Plus, 
   Trash2, 
@@ -21,7 +21,10 @@ import {
 
 export default function App() {
   // Auth state
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(!!getAuthToken());
+  // The JWT lives in an httpOnly cookie the browser attaches automatically, so the
+  // frontend can't inspect it directly - session validity is checked via /auth/me.
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
+  const [authChecked, setAuthChecked] = useState(false);
   const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -62,6 +65,12 @@ export default function App() {
   };
 
   useEffect(() => {
+    authApi.me()
+      .then((user) => setIsAuthenticated(!!user))
+      .finally(() => setAuthChecked(true));
+  }, []);
+
+  useEffect(() => {
     if (isAuthenticated) {
       loadNotes(query);
     }
@@ -100,8 +109,8 @@ export default function App() {
     }
   };
 
-  const handleLogout = () => {
-    authApi.logout();
+  const handleLogout = async () => {
+    await authApi.logout();
     setIsAuthenticated(false);
     setNotes([]);
     setSelectedNote(null);
@@ -218,6 +227,12 @@ export default function App() {
       setImporting(false);
     }
   };
+
+  // Wait for the session check before deciding which screen to show, so an
+  // already-logged-in user doesn't flash the login form on refresh.
+  if (!authChecked) {
+    return null;
+  }
 
   // Login/Register Screen
   if (!isAuthenticated) {
