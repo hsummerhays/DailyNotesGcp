@@ -26,6 +26,22 @@ backend:
     mongodbUriSecret: "cloudnotes-mongodb-uri"
     jwtSecretSecret: "cloudnotes-jwt-secret"
 
+importWorker:
+  replicaCount: 1
+  image:
+    repository: "us-central1-docker.pkg.dev/your-gcp-project-id/cloudnotes/import-worker"
+    tag: "latest"
+    pullPolicy: IfNotPresent
+  resources:
+    requests:
+      cpu: 250m
+      memory: 512Mi
+    limits:
+      cpu: "1"
+      memory: 1Gi
+  jvmOptions: "-XX:MaxRAMPercentage=75 -XX:+UseG1GC"
+
+
 frontend:
   replicaCount: 1
   image:

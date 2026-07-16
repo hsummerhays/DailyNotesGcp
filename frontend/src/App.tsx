@@ -490,7 +490,7 @@ export default function App() {
           </div>
           <div style={styles.editorArea}>
             <textarea 
-              placeholder="Write your markdown content here..." 
+              placeholder="Write your note content here..." 
               value={content} 
               onChange={(e) => setContent(e.target.value)} 
               style={styles.textArea}

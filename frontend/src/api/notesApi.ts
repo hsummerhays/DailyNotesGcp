@@ -54,7 +54,7 @@ export const authApi = {
 
 export const notesApi = {
   async getActiveNotes(query?: string): Promise<Note[]> {
-    const url = new URL(`${API_BASE_URL}/notes`);
+    const url = new URL(`${API_BASE_URL}/notes`, window.location.origin);
     if (query) {
       url.searchParams.append('query', query);
     }

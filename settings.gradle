@@ -1,0 +1,5 @@
+rootProject.name = 'cloudnotes'
+
+include 'services:common'
+include 'services:notes-api'
+include 'services:import-worker'

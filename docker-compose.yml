@@ -31,10 +31,22 @@ services:
       timeout: 5s
       retries: 5
 
+  pubsub:
+    image: gcr.io/google.com/cloudsdktool/google-cloud-cli:emulators
+    container_name: cloud-notes-pubsub
+    command: gcloud beta emulators pubsub start --host-port=0.0.0.0:8089
+    ports:
+      - "8089:8089"
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import socket; s = socket.socket(); s.connect(('127.0.0.1', 8089))"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
   backend:
     build:
-      context: ./backend
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: services/notes-api/Dockerfile
     container_name: cloud-notes-backend
     ports:
       - "8085:8080"
@@ -44,15 +56,38 @@ services:
       - DB_PASSWORD=${DB_PASSWORD:-cloudnotes_password}
       - MONGODB_URI=mongodb://mongodb:27017/cloudnotes
       - JWT_SECRET=${JWT_SECRET:-dGhpcy1pcy1hLXZlcnktc2VjdXJlLTMyLWJ5dGUtc2VjcmV0LWtleS1mb3ItZGV2ZWxvcG1lbnQ=}
-      # The frontend container reaches the backend through nginx's same-origin /api
-      # proxy, not directly, so it never triggers CORS. These origins only matter for
-      # a locally-run `npm run dev` (Vite on 5173) talking straight to this backend.
-      - CORS_ALLOWED_ORIGINS=http://localhost:5173,http://127.0.0.1:5173
+      - CORS_ALLOWED_ORIGINS=http://localhost:5173,http://127.0.0.1:5173,http://localhost:8086,http://127.0.0.1:8086
       - COOKIE_SECURE=false
+      - PUBSUB_EMULATOR_HOST=pubsub:8089
+      - GCP_PROJECT_ID=cloudnotes-dev
     depends_on:
       postgres:
         condition: service_healthy
       mongodb:
+        condition: service_healthy
+      pubsub:
+        condition: service_healthy
+
+  import-worker:
+    build:
+      context: .
+      dockerfile: services/import-worker/Dockerfile
+    container_name: cloud-notes-worker
+    ports:
+      - "8087:8081"
+    environment:
+      - DB_URL=jdbc:postgresql://postgres:5432/cloudnotes
+      - DB_USER=${DB_USER:-cloudnotes_user}
+      - DB_PASSWORD=${DB_PASSWORD:-cloudnotes_password}
+      - MONGODB_URI=mongodb://mongodb:27017/cloudnotes
+      - PUBSUB_EMULATOR_HOST=pubsub:8089
+      - GCP_PROJECT_ID=cloudnotes-dev
+    depends_on:
+      postgres:
+        condition: service_healthy
+      mongodb:
+        condition: service_healthy
+      pubsub:
         condition: service_healthy
 
   frontend:

@@ -19,9 +19,9 @@ This document details the refined technical roadmap for CloudNotes, prioritizing
 | **MongoDB / NoSQL** | ⚠️ Basic | Backs note storage. Planned compound indexing, text search, optimistic locking, and cursor pagination |
 | **JWT & API Security** | ✅ Done | httpOnly/SameSite cookies, per-resource ownership verification |
 | **OAuth2 / OIDC** | ❌ Planned | Support Google OpenID Connect alongside JWT/passwords (Phase 4) |
-| **Microservices / Distributed** | ❌ Planned | Move consumer worker to a separately deployable Spring Boot app (Phase 3) |
+| **Microservices / Distributed** | ✅ Done | Extracted standalone Spring Boot worker for bulk imports (Phase 3) |
 | **Containerization** | ✅ Done | Multi-stage production-ready Dockerfiles & docker-compose stack |
-| **Messaging & Streaming** | ❌ Planned | Pub/Sub backed async bulk import processing with job records (Phase 2) |
+| **Messaging & Streaming** | ✅ Done | GCP Pub/Sub backed async bulk imports with PostgreSQL job state (Phase 2) |
 | **Cloud-Native / GKE** | ⚠️ Drafted | Terraform IaC & Helm configs written (Phase 5) |
 | **CI/CD** | ❌ Planned | GitHub Actions automated tests, build, scan, and deploy (Phase 5) |
 | **AI / Generative AI** | ❌ Planned | Constrained Python worker for schema-validated note summaries (Phase 6) |
@@ -40,28 +40,17 @@ This document details the refined technical roadmap for CloudNotes, prioritizing
 
 ### Phase 2 — Durable Asynchronous Processing
 *Goal: Re-architect bulk import to use persistent job state and a messaging broker instead of in-memory queues.*
-- [ ] **PostgreSQL Job Registry**: Track import task records with an `import_job` table:
-  - `id` (UUID), `user_id` (String), `status` (PENDING, PROCESSING, COMPLETED, FAILED), `source_file_name`, `total_items`, `processed_items`, `failed_items`, `idempotency_key`, `created_at`, `started_at`, `completed_at`, `error_message`.
-- [ ] **Pub/Sub Integration**: Publish lightweight notification messages containing job identifiers rather than entire payloads:
-  ```json
-  {
-    "eventType": "notes.import.requested",
-    "eventVersion": 1,
-    "jobId": "c13c...",
-    "userId": "913...",
-    "objectLocation": "gs://cloudnotes-imports/...",
-    "correlationId": "5ab..."
-  }
-  ```
+- [x] **PostgreSQL Job Registry**: Track import task records with an `import_job` table.
+- [x] **Pub/Sub Integration**: Publish lightweight notification messages containing job identifiers rather than entire payloads.
 
 ### Phase 3 — Extract the Java Worker
 *Goal: Separate concerns by deploying the message consumer in its own worker process.*
-- [ ] **Deployable Worker Application**: Move the import consumer into a separately deployable Spring Boot service.
-- [ ] **At-Least-Once Delivery**: Design consumer code to handle redeliveries safely.
-- [ ] **Idempotence**: Guarantee idempotent writes using unique compound keys and job status assertions.
-- [ ] **Exponential Backoff & Dead-Letter Topic (DLT)**: Handle transient failures gracefully and route persistent poison messages to a dead-letter queue.
-- [ ] **Batch Writes & Concurrency**: Support high-throughput writes to MongoDB and tune concurrent thread pools.
-- [ ] **Observability**: Implement structured logging, correlation IDs, and support graceful shutdown.
+- [x] **Deployable Worker Application**: Move the import consumer into a separately deployable Spring Boot service.
+- [x] **At-Least-Once Delivery**: Design consumer code to handle redeliveries safely (Pub/Sub ack/nack semantics).
+- [x] **Idempotence**: Atomically claim a job (`UPDATE ... WHERE status = 'PENDING'`) before processing it, and derive each note's ID from its job item so re-running a chunk upserts rather than duplicates.
+- [ ] **Exponential Backoff & Dead-Letter Topic (DLT)**: Not yet configured - nack currently just triggers Pub/Sub's default redelivery, with no dead-letter topic or retry policy on the subscription.
+- [x] **Batch Writes**: MongoDB and Postgres item-status writes both go through `saveAll` in 1,000-item chunks. *(Concurrent thread-pool tuning is still single-threaded per job.)*
+- [x] **Observability**: Implement structured logging, correlation IDs, and support graceful shutdown.
 
 ### Phase 4 — OAuth2 and Stronger API Security
 - [ ] **Google OpenID Connect (OIDC)**: Add Google-based authentication Client to work alongside the cookie-based JWT flow.
@@ -71,7 +60,7 @@ This document details the refined technical roadmap for CloudNotes, prioritizing
 - [ ] **Workload Identity**: Prepare deployment configurations to authenticate with GCP resources securely without static service-account keys.
 
 ### Phase 5 — GKE, Terraform, and CI/CD
-- [x] **Terraform Infrastructure (IaC)**: Provision GKE cluster, Artifact Registry, Cloud SQL (PostgreSQL), IAM, and Secret Manager. *(Authored; not yet applied against a live GCP project. Pub/Sub and Cloud Storage provisioning still planned for Phase 2.)*
+- [x] **Terraform Infrastructure (IaC)**: Provision GKE cluster, Artifact Registry, Cloud SQL (PostgreSQL), IAM, and Secret Manager. *(Authored; not yet applied against a live GCP project. The Pub/Sub topic/subscription from Phase 2 are provisioned at application startup via `PubSubConfig`, not Terraform, and Cloud Storage provisioning is still unplanned.)*
 - [x] **Helm Deployment**: Package services with `Deployment`, `Service`, `Gateway`/`HTTPRoute`, and a Secret Store CSI provider class. *(HPA/PDB resource controls still planned.)*
 - [ ] **CI/CD Pipeline**: GitHub Actions to run tests, scan images for vulnerabilities, push to Artifact Registry, and trigger GKE rolling deployments.
 
@@ -106,6 +95,7 @@ Create a repeatable load test run to measure and prove system performance:
 ```
 DailyNotesGcp/
 ├── services/
+│   ├── common/             # Shared Gradle module (domain/persistence code for the two services below)
 │   ├── notes-api/          # Java/Spring Boot API Gateway
 │   ├── import-worker/      # Java/Spring Boot Bulk Import Worker
 │   └── ai-worker/          # Python AI Summarization Worker
