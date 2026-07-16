@@ -1,74 +1,126 @@
-# CloudNotes Roadmap
+# CloudNotes Roadmap & Distributed System Plan
 
-This document tracks the project's technical roadmap against the stack of skills and
-architecture patterns it's meant to demonstrate. It's more detailed than the README's
-"TBD" checklist: each initiative here is tagged with the specific
-skill/technology it exercises, so progress can be judged against the target list, not
-just against "does the app work."
-
-Last updated: 2026-07-16.
+This document details the refined technical roadmap for CloudNotes, prioritizing changes that maximize portfolio and interview value. The target sequence focuses on turning a secure CRUD application into a highly scalable, event-driven, cloud-native distributed system.
 
 ---
 
-## Skills coverage snapshot
+## Interview-Ready Description
+> **CloudNotes** is a containerized, event-driven note platform built with Java, Spring Boot, React, PostgreSQL, and MongoDB. The public API supports JWT and OAuth2-based authentication with per-user authorization. High-volume imports are processed asynchronously by independently scalable Spring Boot workers through Google Cloud Pub/Sub, using durable job state, idempotent consumers, retries, and dead-letter handling. The system is deployed to GKE through Terraform, Helm, and GitHub Actions. A Python AI worker provides schema-validated note summarization, categorization, and action-item extraction through an LLM integration.
 
-| Skill / technology | Status | Notes |
+---
+
+## Skills Coverage Snapshots
+
+| Skill / Technology | Status | Notes / Plan |
 |---|---|---|
-| Java + Spring Boot | ✅ Done | Layered architecture (api/application/domain/infrastructure), Spring Security |
-| RESTful API design | ✅ Done | Full CRUD, validation, proper status codes, centralized exception handling |
-| SQL database (PostgreSQL) | ✅ Done | Flyway-managed schema, JPA, used for user/auth data |
-| MongoDB / NoSQL | ✅ Done (basic) | Backs note storage; no indexes/aggregation pipelines yet - stretch goal |
-| JWT authentication & authorization | ✅ Done | httpOnly cookie delivery, per-resource ownership checks, role-based `@PreAuthorize` |
-| OAuth2 | ❌ Not started | Explicitly named in the target skill list; currently only custom JWT exists |
-| Microservices / distributed systems | ❌ Not started | Currently a single monolith |
-| High-volume / high-throughput processing | ⚠️ Weak | `BulkImportService` exists but uses an in-memory task registry - doesn't survive a restart or scale past one instance |
-| Containerization | ⚠️ Partial | docker-compose runs the *databases*; no Dockerfile for the app itself yet |
-| Cloud-native / GKE | ❌ Not started | README describes intent; no manifests/Helm chart exist |
-| GCP specifics (Secret Manager, Cloud SQL, Workload Identity) | ⚠️ Partial | `application-prod.properties` is env-var-driven and Secret-Manager-ready, but nothing GCP-specific is wired up |
-| CI/CD | ❌ Not started | No pipeline exists |
-| Messaging / event streaming | ❌ Not started | Bonus skill; pairs naturally with the high-throughput gap above |
-| AI agents / LLMs / generative AI | ❌ Not started | Bonus skill |
-| Python | ❌ Not started | Bonus skill; smallest payoff unless deliberately targeted |
+| **Java & Spring Boot** | ✅ Done | Layered architecture, Spring Security, Validation |
+| **RESTful API Design** | ✅ Done | Complete CRUD, validation, centralized error handling |
+| **SQL (PostgreSQL)** | ✅ Done | User accounts & authentication metadata, Flyway schema migrations |
+| **MongoDB / NoSQL** | ⚠️ Basic | Backs note storage. Planned compound indexing, text search, optimistic locking, and cursor pagination |
+| **JWT & API Security** | ✅ Done | httpOnly/SameSite cookies, per-resource ownership verification |
+| **OAuth2 / OIDC** | ❌ Planned | Support Google OpenID Connect alongside JWT/passwords (Phase 4) |
+| **Microservices / Distributed** | ❌ Planned | Move consumer worker to a separately deployable Spring Boot app (Phase 3) |
+| **Containerization** | ❌ Planned | Multi-stage production-ready Dockerfiles & docker-compose stack (Phase 1) |
+| **Messaging & Streaming** | ❌ Planned | Pub/Sub backed async bulk import processing with job records (Phase 2) |
+| **Cloud-Native / GKE** | ❌ Planned | Terraform IaC & Helm deployment charts (Phase 5) |
+| **CI/CD** | ❌ Planned | GitHub Actions automated tests, build, scan, and deploy (Phase 5) |
+| **AI / Generative AI** | ❌ Planned | Constrained Python worker for schema-validated note summaries (Phase 6) |
 
 ---
 
-## Phased plan
+## Phased Execution Roadmap
 
-Each phase name is tagged with the skill(s) it's meant to demonstrate.
+### Phase 1 — Production Containerization (Immediate Focus)
+*Goal: Establish a stable, containerized local base before splitting services.*
+- [ ] **Backend multi-stage Dockerfile**: Fast builds using cached dependencies and lightweight runner images (Eclipse Temurin JRE).
+- [ ] **Frontend multi-stage Dockerfile**: Build Vite assets and serve them using Nginx.
+- [ ] **Health and readiness endpoints**: Configure Spring Boot Actuator and Nginx status checks.
+- [ ] **Full-stack Docker Compose**: Update root `docker-compose.yml` to orchestrate backend, frontend, PostgreSQL, and MongoDB.
+- [ ] **Container-level integration testing**: Automate validation of the orchestrated containers.
 
-### Phase 1 - OAuth2 `[OAuth2, API security]`
-- [ ] Add a second login path via Spring Security's OAuth2 Client (e.g. "Sign in with Google"), alongside the existing JWT/password flow.
-- [ ] Document the difference between the two auth paths and when each applies.
+### Phase 2 — Durable Asynchronous Processing
+*Goal: Re-architect bulk import to use persistent job state and a messaging broker instead of in-memory queues.*
+- [ ] **PostgreSQL Job Registry**: Track import task records with an `import_job` table:
+  - `id` (UUID), `user_id` (String), `status` (PENDING, PROCESSING, COMPLETED, FAILED), `source_file_name`, `total_items`, `processed_items`, `failed_items`, `idempotency_key`, `created_at`, `started_at`, `completed_at`, `error_message`.
+- [ ] **Pub/Sub Integration**: Publish lightweight notification messages containing job identifiers rather than entire payloads:
+  ```json
+  {
+    "eventType": "notes.import.requested",
+    "eventVersion": 1,
+    "jobId": "c13c...",
+    "userId": "913...",
+    "objectLocation": "gs://cloudnotes-imports/...",
+    "correlationId": "5ab..."
+  }
+  ```
 
-### Phase 2 - Messaging-backed high-throughput processing `[Messaging, High-throughput]`
-- [ ] Replace `BulkImportService`'s in-memory task registry with a durable queue (Kafka or GCP Pub/Sub) and a consumer that persists task state to a datastore.
-- [ ] This also fixes a real correctness bug flagged earlier: task status currently lives in a single pod's memory and is lost on restart or missed by other replicas.
+### Phase 3 — Extract the Java Worker
+*Goal: Separate concerns by deploying the message consumer in its own worker process.*
+- [ ] **Deployable Worker Application**: Move the import consumer into a separately deployable Spring Boot service.
+- [ ] **At-Least-Once Delivery**: Design consumer code to handle redeliveries safely.
+- [ ] **Idempotence**: Guarantee idempotent writes using unique compound keys and job status assertions.
+- [ ] **Exponential Backoff & Dead-Letter Topic (DLT)**: Handle transient failures gracefully and route persistent poison messages to a dead-letter queue.
+- [ ] **Batch Writes & Concurrency**: Support high-throughput writes to MongoDB and tune concurrent thread pools.
+- [ ] **Observability**: Implement structured logging, correlation IDs, and support graceful shutdown.
 
-### Phase 3 - Microservices split `[Microservices, Distributed systems]`
-- [ ] Extract the queue consumer from Phase 2 into its own deployable service, so two services communicate over a broker instead of one process handling everything.
-- [ ] Document the service boundary and why it was drawn there.
+### Phase 4 — OAuth2 and Stronger API Security
+- [ ] **Google OpenID Connect (OIDC)**: Add Google-based authentication Client to work alongside the cookie-based JWT flow.
+- [ ] **CSRF Defense**: Strengthen anti-CSRF protection suited for cookie-based setups.
+- [ ] **Session Renewal**: Implement refresh tokens or secure session-renewal mechanisms.
+- [ ] **Rate Limiting & Security Headers**: Guard the public-facing API gateway against DDoS and script attacks.
+- [ ] **Workload Identity**: Prepare deployment configurations to authenticate with GCP resources securely without static service-account keys.
 
-### Phase 4 - Containerization & CI/CD `[Containerization, Cloud-native, DevOps, CI/CD]`
-- [ ] Production-ready multi-stage Dockerfiles for backend and frontend.
-- [ ] A docker-compose that runs the *entire* stack (not just the databases) for local dev/demo.
-- [ ] Kubernetes manifests or a Helm chart (Deployment, Service, Ingress, secrets).
-- [ ] GitHub Actions pipeline: build, test, lint, image build/push.
+### Phase 5 — GKE, Terraform, and CI/CD
+- [ ] **Terraform Infrastructure (IaC)**: Provision VPC, GKE cluster, Artifact Registry, Cloud SQL (PostgreSQL), Pub/Sub, Cloud Storage, and Secret Manager.
+- [ ] **Helm Deployment**: Package services with `Deployment`, `Service`, `Ingress`, `ConfigMaps`, and resource request/limit controls (HPA, PDB).
+- [ ] **CI/CD Pipeline**: GitHub Actions to run tests, scan images for vulnerabilities, push to Artifact Registry, and trigger GKE rolling deployments.
 
-### Phase 5 - GCP / GKE specifics `[GCP, GKE]`
-- [ ] Terraform for GKE cluster, VPC, Cloud SQL, Memorystore.
-- [ ] Workload Identity instead of static credentials.
-- [ ] Wire `application-prod.properties` values to real Secret Manager entries.
-
-### Phase 6 - AI/LLM bonus feature `[LLM, Generative AI]`
-- [ ] A small, real feature - e.g. AI-assisted note summarization or categorization via an LLM API call from the backend.
-
-### Phase 7 (optional) - Python `[Python]`
-- [ ] Only worth doing deliberately - e.g. write the Phase 2/3 queue consumer in Python instead of Java, if diversifying language exposure matters more than architectural consistency.
+### Phase 6 — Python AI Worker
+- [ ] **AI Summarization Worker**: Create a lightweight Python service consuming from a dedicated topic.
+- [ ] **Constrained Prompt Strategy**: Load notes, select prompt templates based on size/language, generate metadata, and validate against JSON Schema.
+- [ ] **Metadata Capture**: Store AI outputs under a nested `ai` schema block in MongoDB and log token usage, model, and prompt versions.
 
 ---
 
-## Out of scope for this roadmap
+## MongoDB Enhancements
+To demonstrate advanced NoSQL expertise:
+- [ ] **Compound Indexing**: Index on `(ownerId, archived, updatedAt)` to optimize note retrieval.
+- [ ] **Text Search**: Add text indexes for full-text search capability.
+- [ ] **Optimistic Locking**: Map a version field (`version` / `@Version`) to manage concurrent updates.
+- [ ] **Cursor Pagination**: Implement cursor-based pagination for high-volume scrolling instead of offset-based pagination.
+- [ ] **Testcontainers**: Integrate database integration tests using Testcontainers.
 
-Feature work that would improve the app as a *product* (rich text editing, sharing/collaboration,
-mobile support, etc.) isn't tracked here unless it happens to also demonstrate a target skill -
-this document exists to prioritize portfolio value, not product completeness.
+---
+
+## High-Throughput Demonstration Scenario
+Create a repeatable load test run to measure and prove system performance:
+1. Import **100,000 generated notes** in bounded batches.
+2. Scale from one worker replica to four.
+3. Verify **batch MongoDB writes** (1,000-note chunks).
+4. Simulate worker failures (killing a container midway) and ensure recovery without data duplication.
+5. Capture real processing throughput and latency metrics and write them directly into the README.
+
+---
+
+## Targeted Directory Structure
+```
+DailyNotesGcp/
+├── services/
+│   ├── notes-api/          # Java/Spring Boot API Gateway
+│   ├── import-worker/      # Java/Spring Boot Bulk Import Worker
+│   └── ai-worker/          # Python AI Summarization Worker
+├── frontend/               # React/TypeScript Vite application
+├── contracts/
+│   ├── asyncapi/           # Messaging contract definitions
+│   └── json-schema/        # Data validation schemas
+├── infrastructure/
+│   ├── terraform/          # IaC for Google Cloud Platform (GCP)
+│   └── helm/               # Helm charts for GKE deployment
+├── load-tests/             # Load testing scripts (K6/JMeter)
+├── docker-compose.yml      # Orchestrates all local services
+├── .github/workflows/      # CI/CD pipelines
+├── README.md
+├── ARCHITECTURE.md
+├── SECURITY.md
+└── ROADMAP.md
+```
