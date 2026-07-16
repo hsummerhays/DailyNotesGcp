@@ -1,11 +1,10 @@
-# Security and Compliance Model
+# Document 02: Security and Compliance Model
 
 This document outlines the security controls, authentication standards, and data separation strategies implemented within **CloudNotes**.
 
 ---
 
 ## 1. Authentication & Session Transit
-
 Authentication is fully stateless and token-based, operating with defensive design principles:
 
 * **JWT Credentials**: Authentication claims are encoded into JSON Web Tokens (JWT) signed using a secure secret key.
@@ -16,7 +15,7 @@ Authentication is fully stateless and token-based, operating with defensive desi
 
 ---
 
-## 2. Infrastructure Privilege Isolation
+## 2. Runtime Privilege Isolation
 
 We implement **least privilege** defaults across both the hosting runtime and database access layers:
 
