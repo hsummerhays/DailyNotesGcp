@@ -1,12 +1,12 @@
 global:
-  projectId: "your-gcp-project-id"
+  projectId: "daily-notes-gcp"
   region: "us-central1"
   environment: "dev"
 
 backend:
   replicaCount: 2
   image:
-    repository: "us-central1-docker.pkg.dev/your-gcp-project-id/cloudnotes/backend"
+    repository: "us-central1-docker.pkg.dev/daily-notes-gcp/cloudnotes/backend"
     tag: "latest"
     pullPolicy: IfNotPresent
   resources:
@@ -19,7 +19,6 @@ backend:
   jvmOptions: "-XX:MaxRAMPercentage=75 -XX:+UseG1GC"
   sqlProxy:
     version: "2.11.2"
-    instanceConnectionName: "your-gcp-project-id:us-central1:cloudnotes-db-dev"
     port: 5432
   secrets:
     dbPasswordSecret: "cloudnotes-db-password"
@@ -29,7 +28,7 @@ backend:
 importWorker:
   replicaCount: 1
   image:
-    repository: "us-central1-docker.pkg.dev/your-gcp-project-id/cloudnotes/import-worker"
+    repository: "us-central1-docker.pkg.dev/daily-notes-gcp/cloudnotes/import-worker"
     tag: "latest"
     pullPolicy: IfNotPresent
   resources:
@@ -45,7 +44,7 @@ importWorker:
 frontend:
   replicaCount: 1
   image:
-    repository: "us-central1-docker.pkg.dev/your-gcp-project-id/cloudnotes/frontend"
+    repository: "us-central1-docker.pkg.dev/daily-notes-gcp/cloudnotes/frontend"
     tag: "latest"
     pullPolicy: IfNotPresent
   resources:

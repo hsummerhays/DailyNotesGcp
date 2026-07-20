@@ -78,7 +78,7 @@ spec:
             - "--structured-logs"
             - "--auto-iam-authn"
             - "--port={{ .Values.backend.sqlProxy.port }}"
-            - "{{ .Values.backend.sqlProxy.instanceConnectionName }}"
+            - "{{ .Values.global.projectId }}:{{ .Values.global.region }}:cloudnotes-db-{{ .Values.global.environment }}"
           resources:
             requests:
               cpu: 100m
