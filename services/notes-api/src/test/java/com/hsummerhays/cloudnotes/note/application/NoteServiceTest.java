@@ -59,12 +59,12 @@ class NoteServiceTest {
     }
 
     @Test
-    void getNote_unknownId_throwsIllegalArgument() {
+    void getNote_unknownId_throwsAccessDenied() {
         UUID id = UUID.randomUUID();
         when(noteRepository.findById(id)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> noteService.getNote(id, "owner@example.com"))
-                .isInstanceOf(IllegalArgumentException.class);
+                .isInstanceOf(AccessDeniedException.class);
     }
 
     @Test

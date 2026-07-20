@@ -16,6 +16,8 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 
+import com.hsummerhays.cloudnotes.security.RateLimitingFilter;
+
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
@@ -31,6 +33,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 
 /**
  * End-to-end tests through the real HTTP + Spring Security stack (cookie auth,
@@ -49,13 +52,22 @@ class NoteFlowIntegrationTest {
     @Autowired
     private ObjectMapper objectMapper;
 
+    @Autowired
+    private RateLimitingFilter rateLimitingFilter;
+
     @MockitoBean
     private NoteRepository noteRepository;
+
+    @MockitoBean
+    private com.google.cloud.spring.pubsub.core.PubSubTemplate pubSubTemplate;
 
     private final Map<UUID, Note> store = new ConcurrentHashMap<>();
 
     @BeforeEach
     void fakeNoteRepository() {
+        rateLimitingFilter.reset();
+        org.mockito.Mockito.when(pubSubTemplate.publish(org.mockito.Mockito.any(), org.mockito.Mockito.any()))
+                .thenReturn(java.util.concurrent.CompletableFuture.completedFuture("msg-id"));
         store.clear();
         when(noteRepository.save(any())).thenAnswer(inv -> {
             Note note = inv.getArgument(0);
@@ -76,6 +88,7 @@ class NoteFlowIntegrationTest {
 
     private Cookie registerAndGetAuthCookie(String email) throws Exception {
         MvcResult result = mockMvc.perform(post("/api/auth/register")
+                        .with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"email\":\"%s\",\"password\":\"password123\",\"displayName\":\"Test User\"}"
                                 .formatted(email)))
@@ -97,6 +110,7 @@ class NoteFlowIntegrationTest {
 
         mockMvc.perform(post("/api/notes")
                         .cookie(authCookie)
+                        .with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"title\":\"Hello\",\"content\":\"World\"}"))
                 .andExpect(status().isCreated())
@@ -114,6 +128,7 @@ class NoteFlowIntegrationTest {
 
         String body = mockMvc.perform(post("/api/notes")
                         .cookie(ownerCookie)
+                        .with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"title\":\"Secret\",\"content\":\"Private\"}"))
                 .andExpect(status().isCreated())
@@ -135,6 +150,7 @@ class NoteFlowIntegrationTest {
         registerAndGetAuthCookie("duplicate@example.com");
 
         mockMvc.perform(post("/api/auth/register")
+                        .with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"email\":\"duplicate@example.com\",\"password\":\"password123\",\"displayName\":\"Dup\"}"))
                 .andExpect(status().is4xxClientError());
@@ -150,6 +166,7 @@ class NoteFlowIntegrationTest {
 
         String body = mockMvc.perform(post("/api/notes/import")
                         .cookie(ownerCookie)
+                        .with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"notes\":[{\"title\":\"A\",\"content\":\"a\"},{\"title\":\"B\",\"content\":\"b\"}]}"))
                 .andExpect(status().isAccepted())
@@ -173,12 +190,55 @@ class NoteFlowIntegrationTest {
         mockMvc.perform(get("/api/auth/me").cookie(authCookie))
                 .andExpect(status().isOk());
 
-        MvcResult logoutResult = mockMvc.perform(post("/api/auth/logout").cookie(authCookie))
+        MvcResult logoutResult = mockMvc.perform(post("/api/auth/logout")
+                        .cookie(authCookie)
+                        .with(csrf()))
                 .andExpect(status().isOk())
                 .andReturn();
         Cookie clearedCookie = logoutResult.getResponse().getCookie("access_token");
 
         mockMvc.perform(get("/api/auth/me").cookie(clearedCookie))
                 .andExpect(status().is4xxClientError());
+    }
+
+    @Test
+    void refreshSession_rotatesTokensSuccessfully() throws Exception {
+        MvcResult result = mockMvc.perform(post("/api/auth/register")
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"email\":\"refreshable@example.com\",\"password\":\"password123\",\"displayName\":\"Test User\"}"))
+                .andExpect(status().isCreated())
+                .andReturn();
+
+        Cookie refreshCookie = result.getResponse().getCookie("refresh_token");
+        assertThat(refreshCookie).as("refresh token cookie should be set").isNotNull();
+
+        // Perform token rotation
+        MvcResult refreshResult = mockMvc.perform(post("/api/auth/refresh")
+                        .cookie(refreshCookie)
+                        .with(csrf()))
+                .andExpect(status().isOk())
+                .andReturn();
+
+        Cookie newAuthCookie = refreshResult.getResponse().getCookie("access_token");
+        Cookie newRefreshCookie = refreshResult.getResponse().getCookie("refresh_token");
+
+        assertThat(newAuthCookie).as("new auth cookie should be returned").isNotNull();
+        assertThat(newRefreshCookie).as("new refresh cookie should be returned").isNotNull();
+        assertThat(newRefreshCookie.getValue()).isNotEqualTo(refreshCookie.getValue());
+    }
+
+    @Test
+    void rateLimiting_blocksExcessiveRequests() throws Exception {
+        // We have configured capacity=5 in test properties.
+        // Consume all tokens
+        for (int i = 0; i < 5; i++) {
+            mockMvc.perform(get("/api/notes"))
+                    .andExpect(status().is4xxClientError());
+        }
+
+        // The 6th request should be rate-limited
+        mockMvc.perform(get("/api/notes"))
+                .andExpect(status().isTooManyRequests());
     }
 }

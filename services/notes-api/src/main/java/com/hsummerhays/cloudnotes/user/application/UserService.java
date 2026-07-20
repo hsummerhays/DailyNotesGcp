@@ -45,16 +45,23 @@ public class UserService {
         return userRepository.save(user);
     }
 
-    public String authenticate(String email, String password) {
+    public AuthenticationResult authenticate(String email, String password) {
+        // Let the AuthenticationManager fail first: it throws the same BadCredentialsException
+        // for "no such user" and "wrong password" (DaoAuthenticationProvider hides the
+        // distinction by default), so callers can't use the response to enumerate accounts.
         authenticationManager.authenticate(
                 new UsernamePasswordAuthenticationToken(email, password)
         );
 
         User user = userRepository.findByEmail(email)
-                .orElseThrow(() -> new IllegalArgumentException("User not found"));
+                .orElseThrow(() -> new IllegalStateException("User vanished after successful authentication: " + email));
 
         UserDetails userDetails = new SecurityUser(user);
-        return jwtService.generateToken(userDetails);
+        String token = jwtService.generateToken(userDetails);
+        return new AuthenticationResult(user, token);
+    }
+
+    public record AuthenticationResult(User user, String token) {
     }
 
     @Transactional(readOnly = true)

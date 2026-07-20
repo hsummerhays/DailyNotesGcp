@@ -2,6 +2,7 @@ package com.hsummerhays.cloudnotes.note.application;
 
 import com.hsummerhays.cloudnotes.note.domain.Note;
 import com.hsummerhays.cloudnotes.note.domain.NoteRepository;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -38,11 +39,11 @@ public class NoteService {
 
     @Transactional(readOnly = true)
     public Note getNote(UUID id, String ownerEmail) {
+        // Collapse "no such note" and "note belongs to someone else" into the same outcome so a
+        // caller can't enumerate other users' note IDs by distinguishing 404 from 403 responses.
         Note note = noteRepository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("Note not found with id: " + id));
-        if (!note.getOwnerEmail().equals(ownerEmail)) {
-            throw new org.springframework.security.access.AccessDeniedException("You do not have permission to view this note");
-        }
+                .filter(n -> n.getOwnerEmail().equals(ownerEmail))
+                .orElseThrow(() -> new AccessDeniedException("You do not have permission to view this note or it does not exist"));
         return note;
     }
 

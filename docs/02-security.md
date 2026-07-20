@@ -12,6 +12,10 @@ Authentication is fully stateless and token-based, operating with defensive desi
   * **HttpOnly**: Binds the cookie value entirely to network transactions, preventing malicious Javascript or XSS injection vectors from extracting the active session token.
   * **SameSite**: Enforces strict browser cookie containment policies to guard against Cross-Site Request Forgery (CSRF).
   * **Secure**: Enforced to guarantee that tokens are only sent over encrypted SSL/TLS channels in production environments.
+* **CSRF Defense**: Enforces the Double-Submit Cookie pattern for mutating requests (POST, PUT, DELETE) using a `CookieCsrfTokenRepository.withHttpOnlyFalse()` and a custom `CsrfCookieFilter` to populate the `XSRF-TOKEN` cookie for React SPA consumption.
+* **Persistent Session Renewal (Refresh Tokens)**: Implements database-backed refresh tokens saved in PostgreSQL (`RefreshToken`) and delivered via HTTP-only cookies. Requesting `/api/auth/refresh` rotates the token (invalidates the old, issues a new one with a fresh JWT) to defend against session hijacking and token replay attacks.
+* **Rate Limiting**: Protects gateway endpoints against DDoS and credential stuffing with a thread-safe in-memory Token Bucket filter (`RateLimitingFilter`) keyed by client IP (using proxy-aware `X-Forwarded-For` chains).
+* **HTTP Security Headers**: Enforces modern security headers in the Spring filter chain including strict frame options (`DENY`) and Content Security Policy (`default-src 'self'`).
 
 ---
 
@@ -50,3 +54,22 @@ We guarantee complete logical tenant isolation at the service API layer:
   importJobRepository.findByIdAndUserId(jobId, ownerEmail);
   ```
   If a user attempts to query a job belonging to a different identity, the application immediately throws an `AccessDeniedException` resulting in a `403 Forbidden` response.
+
+---
+
+## 4. Key Infrastructure Security Decisions
+
+The following architectural constraints and infrastructure options have been identified for future security hardening:
+
+### A. HTTP vs. HTTPS / Gateway TLS Configuration
+* **Current State**: The Helm gateway (`cloudnotes-gateway`) is configured with a Port 80 HTTP listener for simple development/testing deployments. However, application cookies are configured with `cookie-secure=true`.
+* **Decision**: In production, a Google-managed SSL Certificate must be created and attached to the GKE Gateway Class, and a Port 443 HTTPS listener must be configured in `gateway.yaml` to ensure cookie transport over encrypted TLS.
+
+### B. CI/CD Authentication (Service Account Keys vs. Workload Identity Federation)
+* **Current State**: GitHub Actions authenticates to Google Cloud using a static, long-lived Service Account JSON Key (`GCP_SA_KEY`) stored in GitHub Secrets.
+* **Decision**: To follow security best practices and eliminate the risk of compromised long-lived keys, the deployment pipeline should be migrated to **Workload Identity Federation (WIF)**, which uses short-lived OpenID Connect (OIDC) tokens issued by GitHub Actions.
+
+### C. Cloud SQL Networking & Enforced SSL
+* **Current State**: The Cloud SQL database Instance has a public IP enabled (protected by Authorized Networks) and does not currently enforce SSL.
+* **Decision**: Access should be restricted to GKE's private IP network using VPC Peering. In addition, `require_ssl=true` should be enabled on the Cloud SQL instance, enforcing all connections to go through the Cloud SQL Auth Proxy sidecar container which handles encryption and mutual TLS (mTLS) tunneling automatically.
+

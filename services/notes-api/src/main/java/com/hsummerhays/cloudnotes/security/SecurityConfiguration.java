@@ -17,6 +17,8 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
+import org.springframework.security.web.csrf.CsrfTokenRequestAttributeHandler;
 
 import java.util.Arrays;
 import java.util.List;
@@ -27,13 +29,19 @@ import java.util.List;
 public class SecurityConfiguration {
 
     private final JwtAuthenticationFilter jwtAuthFilter;
+    private final RateLimitingFilter rateLimitingFilter;
+    private final CustomOAuth2SuccessHandler oAuth2SuccessHandler;
     private final List<String> allowedOrigins;
 
     public SecurityConfiguration(
             JwtAuthenticationFilter jwtAuthFilter,
+            RateLimitingFilter rateLimitingFilter,
+            CustomOAuth2SuccessHandler oAuth2SuccessHandler,
             @Value("${app.cors.allowed-origins}") List<String> allowedOrigins
     ) {
         this.jwtAuthFilter = jwtAuthFilter;
+        this.rateLimitingFilter = rateLimitingFilter;
+        this.oAuth2SuccessHandler = oAuth2SuccessHandler;
         this.allowedOrigins = allowedOrigins;
     }
 
@@ -41,23 +49,36 @@ public class SecurityConfiguration {
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
             .cors(cors -> cors.configurationSource(corsConfigurationSource()))
-            // Auth is a cookie (SameSite + httpOnly), not a bearer token, so CSRF is
-            // back in play in theory - but this is a JSON-only API: every mutating
-            // request requires "Content-Type: application/json", which is not a
-            // CORS-safelisted content type, so browsers force a preflight. Combined
-            // with the explicit (non-wildcard) allowed-origins list below, a
-            // cross-site page cannot get a mutating request past CORS, which
-            // covers the same threat a CSRF token would.
-            .csrf(AbstractHttpConfigurer::disable)
+            // Enable standard security headers to protect against framing, CSP, and XSS
+            .headers(headers -> headers
+                .frameOptions(frame -> frame.deny())
+                .contentSecurityPolicy(csp -> csp.policyDirectives("default-src 'self'; frame-ancestors 'none'; object-src 'none';"))
+            )
+            // Enable CSRF protection with a cookie-based repository readable by SPA
+            .csrf(csrf -> csrf
+                .csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
+                .csrfTokenRequestHandler(new CsrfTokenRequestAttributeHandler())
+            )
+            .exceptionHandling(exceptions -> exceptions
+                .defaultAuthenticationEntryPointFor(
+                    new org.springframework.security.web.authentication.HttpStatusEntryPoint(org.springframework.http.HttpStatus.UNAUTHORIZED),
+                    new org.springframework.security.web.util.matcher.AntPathRequestMatcher("/api/**")
+                )
+            )
             .authorizeHttpRequests(auth -> auth
-                .requestMatchers("/api/auth/register", "/api/auth/login", "/api/auth/logout").permitAll()
+                .requestMatchers("/api/auth/register", "/api/auth/login", "/api/auth/logout", "/api/auth/refresh").permitAll()
                 .requestMatchers("/actuator/health", "/actuator/health/**", "/actuator/info").permitAll()
                 .anyRequest().authenticated()
             )
             .sessionManagement(session -> session
                 .sessionCreationPolicy(SessionCreationPolicy.STATELESS)
             )
-            .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
+            .oauth2Login(oauth2 -> oauth2
+                .successHandler(oAuth2SuccessHandler)
+            )
+            .addFilterBefore(rateLimitingFilter, org.springframework.security.web.authentication.logout.LogoutFilter.class)
+            .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class)
+            .addFilterAfter(new CsrfCookieFilter(), UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
     }

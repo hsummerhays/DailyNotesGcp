@@ -48,21 +48,21 @@ This document details the refined technical roadmap for CloudNotes, prioritizing
 - [x] **Deployable Worker Application**: Move the import consumer into a separately deployable Spring Boot service.
 - [x] **At-Least-Once Delivery**: Design consumer code to handle redeliveries safely (Pub/Sub ack/nack semantics).
 - [x] **Idempotence**: Atomically claim a job (`UPDATE ... WHERE status = 'PENDING'`) before processing it, and derive each note's ID from its job item so re-running a chunk upserts rather than duplicates.
-- [ ] **Exponential Backoff & Dead-Letter Topic (DLT)**: Not yet configured - nack currently just triggers Pub/Sub's default redelivery, with no dead-letter topic or retry policy on the subscription.
+- [x] **Exponential Backoff & Dead-Letter Topic (DLT)**: Configured the primary subscription (`notes-import-sub`) with an exponential backoff policy and a dead-letter policy routing failures to `notes-import-dl-topic` after 5 attempts.
 - [x] **Batch Writes**: MongoDB and Postgres item-status writes both go through `saveAll` in 1,000-item chunks. *(Concurrent thread-pool tuning is still single-threaded per job.)*
 - [x] **Observability**: Implement structured logging, correlation IDs, and support graceful shutdown.
 
 ### Phase 4 — OAuth2 and Stronger API Security
-- [ ] **Google OpenID Connect (OIDC)**: Add Google-based authentication Client to work alongside the cookie-based JWT flow.
-- [ ] **CSRF Defense**: Strengthen anti-CSRF protection suited for cookie-based setups.
-- [ ] **Session Renewal**: Implement refresh tokens or secure session-renewal mechanisms.
-- [ ] **Rate Limiting & Security Headers**: Guard the public-facing API gateway against DDoS and script attacks.
+- [x] **Google OpenID Connect (OIDC)**: Added `spring-boot-starter-oauth2-client` dependency and created `CustomOAuth2SuccessHandler` to issue standard JWT HTTP-only cookies on successful Google OIDC login.
+- [x] **CSRF Defense**: Configured CookieCsrfTokenRepository (httpOnly=false) and CsrfCookieFilter for single-page applications.
+- [x] **Session Renewal**: Implemented database-backed refresh tokens, automatic rotation on usage, HTTP-only cookie delivery, and secure revocation.
+- [x] **Rate Limiting & Security Headers**: Implemented a thread-safe token bucket algorithm in a custom `RateLimitingFilter` keyed by client IP, and configured CSP/frame protection headers in Spring Security.
 - [ ] **Workload Identity**: Prepare deployment configurations to authenticate with GCP resources securely without static service-account keys.
 
 ### Phase 5 — GKE, Terraform, and CI/CD
 - [x] **Terraform Infrastructure (IaC)**: Provision GKE cluster, Artifact Registry, Cloud SQL (PostgreSQL), IAM, and Secret Manager. *(Authored; not yet applied against a live GCP project. The Pub/Sub topic/subscription from Phase 2 are provisioned at application startup via `PubSubConfig`, not Terraform, and Cloud Storage provisioning is still unplanned.)*
 - [x] **Helm Deployment**: Package services with `Deployment`, `Service`, `Gateway`/`HTTPRoute`, and a Secret Store CSI provider class. *(HPA/PDB resource controls still planned.)*
-- [ ] **CI/CD Pipeline**: GitHub Actions to run tests, scan images for vulnerabilities, push to Artifact Registry, and trigger GKE rolling deployments.
+- [x] **CI/CD Pipeline**: Added GitHub Actions workflow (`.github/workflows/deploy.yml`) to run tests, build/push Docker images to Artifact Registry, and trigger rolling GKE deployments using Helm.
 
 ### Phase 6 — Python AI Worker
 - [ ] **AI Summarization Worker**: Create a lightweight Python service consuming from a dedicated topic.

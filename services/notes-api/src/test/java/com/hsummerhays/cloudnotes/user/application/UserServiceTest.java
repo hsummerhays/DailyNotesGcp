@@ -70,9 +70,10 @@ class UserServiceTest {
         when(userRepository.findByEmail("user@example.com")).thenReturn(Optional.of(user));
         when(jwtService.generateToken(any(UserDetails.class))).thenReturn("signed-jwt");
 
-        String token = userService.authenticate("user@example.com", "pw");
+        UserService.AuthenticationResult result = userService.authenticate("user@example.com", "pw");
 
-        assertThat(token).isEqualTo("signed-jwt");
+        assertThat(result.token()).isEqualTo("signed-jwt");
+        assertThat(result.user()).isSameAs(user);
         verify(authenticationManager).authenticate(any());
     }
 

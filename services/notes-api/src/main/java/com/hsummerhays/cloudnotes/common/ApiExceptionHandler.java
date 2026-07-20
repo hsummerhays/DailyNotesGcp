@@ -1,5 +1,6 @@
 package com.hsummerhays.cloudnotes.common;
 
+import com.hsummerhays.cloudnotes.user.application.InvalidRefreshTokenException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
@@ -17,6 +18,16 @@ import java.util.Map;
 public class ApiExceptionHandler {
 
     private static final Logger log = LoggerFactory.getLogger(ApiExceptionHandler.class);
+
+    @ExceptionHandler(InvalidRefreshTokenException.class)
+    public ResponseEntity<Map<String, Object>> handleInvalidRefreshTokenException(InvalidRefreshTokenException ex) {
+        Map<String, Object> body = new HashMap<>();
+        body.put("timestamp", Instant.now());
+        body.put("status", HttpStatus.UNAUTHORIZED.value());
+        body.put("error", "Unauthorized");
+        body.put("message", ex.getMessage());
+        return new ResponseEntity<>(body, HttpStatus.UNAUTHORIZED);
+    }
 
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<Map<String, Object>> handleIllegalArgumentException(IllegalArgumentException ex) {
@@ -65,6 +76,17 @@ public class ApiExceptionHandler {
         body.put("error", "Conflict");
         body.put("message", "The note was updated by another process. Please reload and try again.");
         return new ResponseEntity<>(body, HttpStatus.CONFLICT);
+    }
+
+    @ExceptionHandler(org.springframework.security.authentication.BadCredentialsException.class)
+    public ResponseEntity<Map<String, Object>> handleBadCredentialsException(org.springframework.security.authentication.BadCredentialsException ex) {
+        log.warn("Authentication failed: {}", ex.getMessage());
+        Map<String, Object> body = new HashMap<>();
+        body.put("timestamp", Instant.now());
+        body.put("status", HttpStatus.UNAUTHORIZED.value());
+        body.put("error", "Unauthorized");
+        body.put("message", "Invalid email or password");
+        return new ResponseEntity<>(body, HttpStatus.UNAUTHORIZED);
     }
 
     @ExceptionHandler(Exception.class)

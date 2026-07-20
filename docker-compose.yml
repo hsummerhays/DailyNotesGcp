@@ -60,6 +60,7 @@ services:
       - COOKIE_SECURE=false
       - PUBSUB_EMULATOR_HOST=pubsub:8089
       - GCP_PROJECT_ID=cloudnotes-dev
+      - SPRING_PROFILES_ACTIVE=local
     depends_on:
       postgres:
         condition: service_healthy
@@ -82,6 +83,7 @@ services:
       - MONGODB_URI=mongodb://mongodb:27017/cloudnotes
       - PUBSUB_EMULATOR_HOST=pubsub:8089
       - GCP_PROJECT_ID=cloudnotes-dev
+      - SPRING_PROFILES_ACTIVE=local
     depends_on:
       postgres:
         condition: service_healthy

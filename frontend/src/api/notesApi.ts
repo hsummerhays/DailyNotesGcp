@@ -5,14 +5,36 @@ const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8080
 // Auth is a JWT delivered as an httpOnly cookie by the backend - the browser attaches
 // it automatically via `credentials: 'include'`. There is no token for JS to read or
 // store, so nothing here touches localStorage.
-const requestInit = (init: RequestInit = {}): RequestInit => ({
-  ...init,
-  credentials: 'include',
-  headers: {
+const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
+
+// The backend's CsrfCookieFilter forces an XSRF-TOKEN cookie on every response (readable
+// by JS - it's not httpOnly). Spring Security requires it echoed back as X-XSRF-TOKEN on
+// any state-changing request, so every mutating call below must attach it.
+const getCsrfToken = (): string | null => {
+  const match = document.cookie.match(/(?:^|;\s*)XSRF-TOKEN=([^;]+)/);
+  return match ? decodeURIComponent(match[1]) : null;
+};
+
+const requestInit = (init: RequestInit = {}): RequestInit => {
+  const method = (init.method ?? 'GET').toUpperCase();
+  const headers: Record<string, string> = {
     'Content-Type': 'application/json',
-    ...init.headers,
-  },
-});
+    ...(init.headers as Record<string, string> | undefined),
+  };
+
+  if (!SAFE_METHODS.has(method)) {
+    const csrfToken = getCsrfToken();
+    if (csrfToken) {
+      headers['X-XSRF-TOKEN'] = csrfToken;
+    }
+  }
+
+  return {
+    ...init,
+    credentials: 'include',
+    headers,
+  };
+};
 
 export const authApi = {
   async register(email: string, password: string, displayName: string): Promise<AuthResponse> {
