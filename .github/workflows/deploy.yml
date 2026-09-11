@@ -119,4 +119,7 @@ jobs:
             --set importWorker.image.repository=${{ env.REGISTRY }}/${{ env.PROJECT_ID }}/cloudnotes/import-worker \
             --set importWorker.image.tag=${{ github.sha }} \
             --set frontend.image.repository=${{ env.REGISTRY }}/${{ env.PROJECT_ID }}/cloudnotes/frontend \
-            --set frontend.image.tag=${{ github.sha }}
+            --set frontend.image.tag=${{ github.sha }} \
+            --set backend.secrets.dbPassword=${{ secrets.DB_PASSWORD }} \
+            --set backend.secrets.mongodbUri=${{ secrets.MONGODB_URI }} \
+            --set backend.secrets.jwtSecret=${{ secrets.JWT_SECRET }}

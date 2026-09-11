@@ -23,13 +23,13 @@ Rather than using older, legacy Kubernetes `Ingress` controllers, we use the mod
 
 ---
 
-## 3. Secret Manager CSI Sync
+## 3. Secret Management & In-Cluster Services
 
-Secrets are injected securely without exposing static credentials in environment manifests:
-1. **SecretProviderClass** (`secret-provider-class.yaml`): Declares the Secret Store CSI driver bindings.
-2. **Mounting**: Pod containers mount the CSI volume. This triggers the CSI driver to query Secret Manager (validated using GKE Workload Identity IAM).
-3. **Synchronizing**: The driver synchronizes the fetched values into standard Kubernetes `Secret` objects.
-4. **Injection**: Spring Boot containers read these keys (`DB_PASSWORD`, `MONGODB_URI`, `JWT_SECRET`) directly as environment variables from the synced secret references.
+Secrets are managed and injected securely into the backend and worker pods:
+1. **Kubernetes Secret** (`backend-secret.yaml`): Generates the `cloudnotes-backend-secret-sync` secret from `.Values.backend.secrets` passed via Helm (injected at deploy time from CI/CD repository secrets).
+2. **Key Injection**: Spring Boot containers read these keys (`DB_PASSWORD`, `MONGODB_URI`, `JWT_SECRET`) directly as environment variables from `secretKeyRef` bindings on `cloudnotes-backend-secret-sync`.
+3. **In-Cluster MongoDB**: For development/testing environments, `mongodb.yaml` provisions an in-cluster MongoDB StatefulSet/Service with persistent storage (`mongodb://mongodb:27017/cloudnotes`).
+
 
 ---
 

@@ -45,6 +45,8 @@ spec:
                 secretKeyRef:
                   name: cloudnotes-backend-secret-sync
                   key: JWT_SECRET
+            - name: CORS_ALLOWED_ORIGINS
+              value: {{ .Values.backend.corsAllowedOrigins | default "http://136.68.93.51" | quote }}
             - name: JAVA_TOOL_OPTIONS
               value: "{{ .Values.backend.jvmOptions }}"
           resources:
@@ -69,16 +71,11 @@ spec:
             preStop:
               exec:
                 command: ["/bin/sh", "-c", "sleep 15"] # Let active HTTP connections drain during rolling upgrades
-          volumeMounts:
-            - name: secrets-mount
-              mountPath: "/mnt/secrets"
-              readOnly: true
 
         - name: cloud-sql-proxy
           image: "gcr.io/cloud-sql-connectors/cloud-sql-proxy:{{ .Values.backend.sqlProxy.version }}"
           args:
             - "--structured-logs"
-            - "--auto-iam-authn"
             - "--port={{ .Values.backend.sqlProxy.port }}"
             - "{{ .Values.global.projectId }}:{{ .Values.global.region }}:cloudnotes-db-{{ .Values.global.environment }}"
           resources:
@@ -88,11 +85,3 @@ spec:
             limits:
               cpu: 200m
               memory: 256Mi
-
-      volumes:
-        - name: secrets-mount
-          csi:
-            driver: secrets-store-gke.csi.k8s.io
-            readOnly: true
-            volumeAttributes:
-              secretProviderClass: "cloudnotes-secrets-provider"

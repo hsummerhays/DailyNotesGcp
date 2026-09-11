@@ -21,9 +21,10 @@ backend:
     version: "2.11.2"
     port: 5432
   secrets:
-    dbPasswordSecret: "cloudnotes-db-password"
-    mongodbUriSecret: "cloudnotes-mongodb-uri"
-    jwtSecretSecret: "cloudnotes-jwt-secret"
+    # Actual secret values - override via --set at deploy time, never commit real values
+    dbPassword: "placeholder-db-password-change-me"
+    mongodbUri: "mongodb://mongodb:27017/cloudnotes"
+    jwtSecret: "placeholder-jwt-signing-secret-change-me-32bytes-long"
 
 importWorker:
   replicaCount: 1

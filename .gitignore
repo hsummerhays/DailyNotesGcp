@@ -1,6 +1,9 @@
-# Gradle
+# Gradle / Java / Kotlin
 .gradle/
 **/build/
+**/bin/
+bin/
+
 
 # Node / JS
 node_modules/

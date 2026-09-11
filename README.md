@@ -96,27 +96,28 @@ We use Flyway to manage relational database schema migrations. The migration scr
 
 ## Configuration
 
-Local dev config lives in `services/notes-api/src/main/resources/application.properties` and
-`services/import-worker/src/main/resources/application.properties`; every value in each is
-overridable via environment variable (matching the docker-compose defaults out of the box),
-including `PUBSUB_EMULATOR_HOST` / `GCP_PROJECT_ID` for the local Pub/Sub emulator.
+Local dev configuration is driven by environment variables and defaults:
+- Docker Compose automatically loads variables from `.env` in the project root if present (copy from [`.env.example`](.env.example)).
+- Default fallbacks exist in `services/notes-api/src/main/resources/application.properties` and `services/import-worker/src/main/resources/application.properties` for seamless local developer startup.
+- Key secrets and configurations include `DB_USER`, `DB_PASSWORD`, `MONGODB_URI`, `JWT_SECRET`, `JWT_EXPIRATION_MS`, `GOOGLE_CLIENT_ID`, and `GOOGLE_CLIENT_SECRET`.
 
 For a real deployment of the API, activate the `prod` profile
 (`services/notes-api/src/main/resources/application-prod.properties`) via `SPRING_PROFILES_ACTIVE=prod`.
 That profile has **no default values** - it fails fast at startup unless `DB_URL`, `DB_USER`,
 `DB_PASSWORD`, `MONGODB_URI`, `JWT_SECRET`, and `CORS_ALLOWED_ORIGINS` are all supplied
-(e.g. injected from GCP Secret Manager).
+(e.g. injected from GCP Secret Manager or CI/CD secrets via Helm).
 
 Auth is a short-lived JWT delivered as an httpOnly, SameSite cookie (not readable by JS,
 not stored in localStorage). The frontend reads `VITE_API_BASE_URL` from
 `frontend/.env` (see `frontend/.env.example`) to know where to send requests.
+
 
 ---
 
 ## Deployment (GKE)
 This application is designed to run on Google Kubernetes Engine (GKE). Production infrastructure components can be provisioned using:
 - **Terraform** (`infrastructure/terraform`) for GCP resources: GKE cluster, Artifact Registry, Cloud SQL (PostgreSQL), IAM/Workload Identity bindings, and Secret Manager. *(Authored; not yet applied against a live GCP project.)*
-- **Helm** (`infrastructure/helm/cloudnotes`) for container deployments: `notes-api`, `import-worker`, and the frontend, each with their own `Deployment`/`Service`, plus a shared `Gateway`/`HTTPRoute` and Secret Store CSI provider class.
+- **Helm** (`infrastructure/helm/cloudnotes`) for container deployments: `notes-api`, `import-worker`, frontend, and in-cluster MongoDB, each with their own `Deployment`/`StatefulSet`/`Service`, plus a shared `Gateway`/`HTTPRoute` and Kubernetes secret manifest (`backend-secret.yaml`) populated via Helm values.
 
 The Pub/Sub topic and subscription used for bulk imports are currently provisioned at application startup (see `PubSubConfig`) rather than via Terraform.
 

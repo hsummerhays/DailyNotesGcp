@@ -40,10 +40,14 @@ graph LR
 
 ### Stage 5: GKE Rolling Update
 * Configures `kubectl` access for the GKE cluster.
-* Runs `helm upgrade --install` with the new commit tag passed as a variable:
+* Runs `helm upgrade --install` with the new commit tag and secret bindings passed as variables:
   ```bash
   helm upgrade --install cloudnotes ./infrastructure/helm/cloudnotes \
     --set backend.image.tag=${GITHUB_SHA::7} \
     --set importWorker.image.tag=${GITHUB_SHA::7} \
-    --set frontend.image.tag=${GITHUB_SHA::7}
+    --set frontend.image.tag=${GITHUB_SHA::7} \
+    --set backend.secrets.dbPassword=${DB_PASSWORD} \
+    --set backend.secrets.mongodbUri=${MONGODB_URI} \
+    --set backend.secrets.jwtSecret=${JWT_SECRET}
   ```
+
