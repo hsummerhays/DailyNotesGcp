@@ -1,7 +1,7 @@
 # Document 05: CI/CD Ingestion Pipelines
-
-This document outlines the design of the planned CI/CD automation pipeline for building, scanning, and deploying CloudNotes.
-
+ 
+This document outlines the CI/CD automation pipeline for building, scanning, and deploying CloudNotes via GitHub Actions (`.github/workflows/deploy.yml`).
+ 
 ---
 
 ## 1. Pipeline Architecture

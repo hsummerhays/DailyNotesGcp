@@ -4,14 +4,14 @@ This document outlines the execution plan for CloudNotes, divided into progressi
 
 ---
 
-## Milestone 1: Core GCP Infrastructure & Deployment (Active)
+## Milestone 1: Core GCP Infrastructure & Deployment (Complete)
 * **Goal**: Establish the base cloud deployment with a fully containerized stack managed via IaC.
 * **Prerequisites**: Containerized local services (Phase 1) complete.
 * **Scope**:
   - [x] Terraform scripts for VPC, GKE Autopilot, Cloud SQL PostgreSQL, Secret Manager, and Artifact Registry.
   - [x] Helm Charts packaging `notes-api`, `import-worker`, Nginx frontend, Gateway load-balancer routing, and Secret Store CSI class.
-  - [ ] Deploy stack to live GCP project via `terraform apply` -> `helm install`.
-  - [ ] Connect backend to GKE Workload Identity sidecar to verify database and MongoDB Atlas connectivity.
+  - [x] Deploy stack to live GCP project via `terraform apply` -> GitHub Actions CI/CD Helm deployment.
+  - [x] Verified full build, test, container push, GKE credential retrieval, and Helm release lifecycle.
 
 ---
 

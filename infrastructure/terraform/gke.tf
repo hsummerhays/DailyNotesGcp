@@ -3,7 +3,8 @@ resource "google_container_cluster" "primary" {
   location = var.region
 
   # Enable Autopilot mode
-  enable_autopilot = true
+  enable_autopilot    = true
+  deletion_protection = false
 
   # Release channel recommendation
   release_channel {

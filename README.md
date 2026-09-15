@@ -114,12 +114,59 @@ not stored in localStorage). The frontend reads `VITE_API_BASE_URL` from
 
 ---
 
-## Deployment (GKE)
-This application is designed to run on Google Kubernetes Engine (GKE). Production infrastructure components can be provisioned using:
-- **Terraform** (`infrastructure/terraform`) for GCP resources: GKE cluster, Artifact Registry, Cloud SQL (PostgreSQL), IAM/Workload Identity bindings, and Secret Manager. *(Authored; not yet applied against a live GCP project.)*
+## Deployment (GKE) & CI/CD Testing
+This application is designed to run on Google Kubernetes Engine (GKE). Production infrastructure components are provisioned and managed via:
+- **Terraform** (`infrastructure/terraform`) for GCP resources: GKE Autopilot cluster, Artifact Registry, Cloud SQL (PostgreSQL), IAM/Workload Identity bindings, and Secret Manager.
 - **Helm** (`infrastructure/helm/cloudnotes`) for container deployments: `notes-api`, `import-worker`, frontend, and in-cluster MongoDB, each with their own `Deployment`/`StatefulSet`/`Service`, plus a shared `Gateway`/`HTTPRoute` and Kubernetes secret manifest (`backend-secret.yaml`) populated via Helm values.
+- **GitHub Actions** (`.github/workflows/deploy.yml`): Automates multi-stage Docker builds, image pushes to GCP Artifact Registry, GKE credential retrieval, and Helm deployments on push to `main`.
 
-The Pub/Sub topic and subscription used for bulk imports are currently provisioned at application startup (see `PubSubConfig`) rather than via Terraform.
+### Testing & Verification Workflow
+
+To test or verify the deployment pipeline end-to-end:
+
+1. **Configure Repository Secrets in GitHub (`gh secret set`)**:
+   - `GCP_PROJECT_ID`: GCP project ID (e.g. `daily-notes-gcp`)
+   - `GCP_REGION`: Target region (e.g. `us-central1`)
+   - `GKE_CLUSTER_NAME`: Cluster name matching Terraform (`cloudnotes-cluster-dev`)
+   - `GCP_SA_KEY`: Service account key JSON with Container & Artifact Registry permissions
+   - `DB_PASSWORD`, `MONGODB_URI`, `JWT_SECRET`: Backend deployment secrets
+
+2. **Provision Infrastructure via Terraform**:
+   ```bash
+   cd infrastructure/terraform
+   terraform init
+   terraform apply -var-file="environments/dev.tfvars"
+   ```
+
+3. **Verify GitHub Actions Deployment**:
+   Trigger the workflow via `git push origin main` or via GitHub CLI:
+   ```bash
+   gh workflow run deploy.yml --ref main
+   ```
+   Confirm that all steps pass:
+   - Java & Node.js test suites
+   - Docker image build & push to Artifact Registry
+   - `google-github-actions/get-gke-credentials` connection
+   - Helm release upgrade/install into GKE
+
+4. **Scale Down or Tear Down (Zero Ongoing Cost)**:
+   - **Scale pods to zero** (keep cluster & DB active without compute load):
+     ```bash
+     kubectl scale deployment --all --replicas=0 -n default
+     ```
+   - **Destroy cluster only** (keeps DB, secrets, and repository in place):
+     ```bash
+     cd infrastructure/terraform
+     terraform destroy -target="google_container_cluster.primary" -var-file="environments/dev.tfvars"
+     ```
+     *(Note: `deletion_protection = false` is configured in `gke.tf` to allow on-demand destruction).*
+   - **Full teardown** (deletes all infrastructure resources cleanly):
+     ```bash
+     cd infrastructure/terraform
+     terraform destroy -var-file="environments/dev.tfvars"
+     ```
+
+The Pub/Sub topic and subscription used for bulk imports are provisioned at application startup (see `PubSubConfig`).
 
 ---
 
@@ -133,12 +180,12 @@ The following components and features are planned for future development to alig
 
 ### 2. Infrastructure as Code (IaC) & DevOps
 - [x] **Terraform Configuration**: Create Terraform scripts to provision GCP infrastructure, including a GKE cluster, Artifact Registry, Cloud SQL (PostgreSQL), IAM, and Secret Manager.
-- [ ] **CI/CD Pipelines**: Set up GitHub Actions or Google Cloud Build pipelines for automated testing, linting, Docker image building, and GKE deployment.
+- [x] **CI/CD Pipelines**: Set up GitHub Actions CI/CD pipeline (`.github/workflows/deploy.yml`) for automated testing, multi-stage Docker builds, Artifact Registry push, and live GKE deployment via Helm.
 
 ### 3. Architecture & Scale
 - [x] **Messaging & Event Streaming**: Integrate Google Cloud Pub/Sub for asynchronous bulk-import processing, decoupled from the API into its own worker service.
 - [ ] **High-Throughput Workloads**: Integrate caching (Redis/Memorystore) and API rate-limiting to support high-volume workloads.
-- [ ] **Dead-Letter Handling**: Configure a Pub/Sub dead-letter topic and retry policy for the import subscription (currently relies on default nack/redelivery only).
+- [x] **Dead-Letter Handling**: Configure a Pub/Sub dead-letter topic and retry policy for the import subscription.
 
 ### 4. AI & Generative AI Integration
 - [ ] **LLM / Copilot Integration**: Incorporate AI capabilities such as AI-assisted search, notes categorization, or auto-summarization using Large Language Models (LLMs) and agentic frameworks.

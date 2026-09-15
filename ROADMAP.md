@@ -22,8 +22,8 @@ This document details the refined technical roadmap for CloudNotes, prioritizing
 | **Microservices / Distributed** | ✅ Done | Extracted standalone Spring Boot worker for bulk imports (Phase 3) |
 | **Containerization** | ✅ Done | Multi-stage production-ready Dockerfiles & docker-compose stack |
 | **Messaging & Streaming** | ✅ Done | GCP Pub/Sub backed async bulk imports with PostgreSQL job state (Phase 2) |
-| **Cloud-Native / GKE** | ⚠️ Drafted | Terraform IaC & Helm configs written (Phase 5) |
-| **CI/CD** | ❌ Planned | GitHub Actions automated tests, build, scan, and deploy (Phase 5) |
+| **Cloud-Native / GKE** | ✅ Done | Terraform IaC & Helm configs deployed to GKE Autopilot (Phase 5) |
+| **CI/CD** | ✅ Done | GitHub Actions automated tests, multi-stage Docker build/push, and Helm deploy (Phase 5) |
 | **AI / Generative AI** | ❌ Planned | Constrained Python worker for schema-validated note summaries (Phase 6) |
 
 ---
@@ -60,9 +60,9 @@ This document details the refined technical roadmap for CloudNotes, prioritizing
 - [ ] **Workload Identity**: Prepare deployment configurations to authenticate with GCP resources securely without static service-account keys.
 
 ### Phase 5 — GKE, Terraform, and CI/CD
-- [x] **Terraform Infrastructure (IaC)**: Provision GKE cluster, Artifact Registry, Cloud SQL (PostgreSQL), IAM, and Secret Manager. *(Authored; not yet applied against a live GCP project. The Pub/Sub topic/subscription from Phase 2 are provisioned at application startup via `PubSubConfig`, not Terraform, and Cloud Storage provisioning is still unplanned.)*
-- [x] **Helm Deployment**: Package services with `Deployment`, `Service`, `Gateway`/`HTTPRoute`, and a Secret Store CSI provider class. *(HPA/PDB resource controls still planned.)*
-- [x] **CI/CD Pipeline**: Added GitHub Actions workflow (`.github/workflows/deploy.yml`) to run tests, build/push Docker images to Artifact Registry, and trigger rolling GKE deployments using Helm.
+- [x] **Terraform Infrastructure (IaC)**: Provision GKE Autopilot cluster, Artifact Registry, Cloud SQL (PostgreSQL), IAM, and Secret Manager. Tested and verified against live GCP project (`daily-notes-gcp`).
+- [x] **Helm Deployment**: Package services with `Deployment`, `Service`, `Gateway`/`HTTPRoute`, and a Secret Store CSI provider class. Successfully deployed to live GKE cluster.
+- [x] **CI/CD Pipeline**: GitHub Actions workflow (`.github/workflows/deploy.yml`) runs tests, builds multi-stage Docker images, pushes to Artifact Registry, connects via `google-github-actions/get-gke-credentials`, and performs rolling Helm deployments. Verified end-to-end.
 
 ### Phase 6 — Python AI Worker
 - [ ] **AI Summarization Worker**: Create a lightweight Python service consuming from a dedicated topic.

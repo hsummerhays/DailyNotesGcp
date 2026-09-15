@@ -53,3 +53,23 @@ To bring up the entire cloud infrastructure from scratch:
    terraform apply -var-file=environments/dev.tfvars
    ```
 4. **Outcome**: The outputs will display the registry URL (`artifact_registry_repo`) and the GKE cluster name (`gke_cluster_name`) to be used in the deployment phases.
+
+---
+
+## 4. Teardown and Cost Management
+
+To avoid ongoing charges when testing is completed:
+
+1. **Destroy GKE Cluster Only**:
+   ```bash
+   cd infrastructure/terraform
+   terraform destroy -target="google_container_cluster.primary" -var-file="environments/dev.tfvars"
+   ```
+   *(Note: `deletion_protection = false` is configured in `gke.tf` to permit automated destruction).*
+
+2. **Full Infrastructure Destruction**:
+   ```bash
+   cd infrastructure/terraform
+   terraform destroy -var-file="environments/dev.tfvars"
+   ```
+
